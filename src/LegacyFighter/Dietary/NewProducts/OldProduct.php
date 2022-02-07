@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace LegacyFighter\Dietary\NewProducts;
 
 use Brick\Math\BigDecimal;
@@ -9,41 +11,20 @@ class OldProduct
 {
     private $serialNumber;
 
-    private $price;
+    private ProductPrice $price;
 
-    private $desc;
+    private ProductDescription $productDescription;
 
-    private $longDesc;
+    private ProductCounter $productCounter;
 
     private $counter;
-
-    /**
-     * @throws \Exception
-     */
-    public function decrementCounter(): void
-    {
-        if ($this->price != null && $this->price->getSign() > 0) {
-            if
-            ($this->counter === null) {
-                throw new \Exception("null counter");
-            }
-
-            $this->counter = $this->counter - 1;
-            if ($this->counter < 0) {
-                throw new \Exception("Negative counter");
-            }
-        } else {
-            throw new \Exception("Invalid price");
-
-        }
-    }
 
     public function __construct(?BigDecimal $price, ?string $desc, ?string $longDesc, ?int $counter)
     {
         $this->serialNumber = Uuid::uuid4();
-        $this->price = $price;
-        $this->desc = $desc;
-        $this->longDesc = $longDesc;
+        $this->price = new ProductPrice($price);
+        $this->productDescription = new ProductDescription($desc, $longDesc);
+        $this->productCounter = new ProductCounter($counter);
         $this->counter = $counter;
     }
 
@@ -52,64 +33,41 @@ class OldProduct
      */
     public function incrementCounter(): void
     {
-        if ($this->price != null && $this->price->getSign() > 0) {
-            if ($this->counter === null) {
-                throw new \Exception("null counter");
-            }
+        $this->price->validatePrice();
 
-            if ($this->counter + 1 < 0) {
-                throw new \Exception("Negative counter");
-            }
-            $this->counter = $this->counter + 1;
-
-        } else {
-            throw new \Exception("Invalid price");
-
-        }
-    }
-
-    public function changePriceTo(?BigDecimal $newPrice): void
-    {
-        if ($this->counter === null) {
-            throw new \Exception("null counter");
-        }
-        if
-        ($this->counter > 0) {
-            if ($newPrice === null) {
-                throw new \Exception("new price null");
-            }
-            $this->price = $newPrice;
-        }
+        $this->productCounter->increment();
     }
 
     /**
-     * @param string|null $charToReplace
-     * @param string|null $replaceWith
      * @throws \Exception
      */
-    public function replaceCharFromDesc(?string $charToReplace, ?string $replaceWith): void
+    public function decrementCounter(): void
     {
-        if ($this->longDesc === null || empty($this->longDesc) ||
+        $this->price->validatePrice();
 
-            $this->desc === null || empty($this->desc)) {
-            throw new \Exception("null or empty desc");
-        }
-        $this->longDesc = str_replace($charToReplace, $replaceWith, $this->longDesc);
-        $this->desc = str_replace($charToReplace, $replaceWith, $this->desc);
+        $this->productCounter->decrement();
     }
 
     /**
-     * @return string
+     * @throws \Exception
      */
-    public function formatDesc(): string {
-        if ($this->longDesc === null ||
-               empty($this->longDesc) ||
-               $this->desc === null
-               || empty($this->desc)) {
-            return "";
+    public function changePriceTo(?BigDecimal $newPrice): void
+    {
+        if ($this->productCounter->isPositive()) {
+            if ($newPrice === null) {
+                throw new \Exception('new price null');
+            }
+            $this->price = new ProductPrice($newPrice);
         }
-        return $this->desc . " *** " . $this->longDesc;
     }
 
+    public function replaceCharFromDesc(?string $charToReplace, ?string $replaceWith): void
+    {
+        $this->productDescription = $this->productDescription->replaceCharFromDesc($charToReplace, $replaceWith);
+    }
 
+    public function formatDesc(): string
+    {
+        return $this->productDescription->formatDesc();
+    }
 }
